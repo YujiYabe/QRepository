@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="X-UA-Compatible" content="ie=edge">
+	<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+	<script src="//cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+	<link href="//fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
+	<link href="//cdn.jsdelivr.net/npm/@mdi/font@4.5.95/css/materialdesignicons.min.css" rel="stylesheet">
+	<link href="//cdn.jsdelivr.net/npm/vuetify@2.1.4/dist/vuetify.min.css" rel="stylesheet">
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+</head>
+
+<body>
+	<v-app id="app">
+		<v-container fluid grid-list-md text-xs-center class="grey lighten-2">
+			<!-- マウス追従 コンポーネント--------------------------------- -->
+			<div id="QRElement"></div>
+			<!-- タイトル コンポーネント--------------------------------- -->
+			<v-layout row wrap justify-center>
+				<div class=" title_text display-4">
+					QRepository
+				</div>
+			</v-layout>
+			<!-- 絞り込み コンポーネント--------------------------------- -->
+			<v-layout row wrap justify-center class="border-radius ">
+				<v-flex xs10>
+					<v-layout row wrap justify-center class="white border-radius my-3 pt-6">
+						<!-- 環境 絞り込み--------------------------------- -->
+						<v-flex xs5>
+							<v-layout row wrap justify-end>
+								<v-flex xs12>
+									<v-select v-model="dataSelectConstant" :items="dataConstantList" label="select consntant" filled
+										outlined append-icon="mdi-pencil" @click:append="methodToggledataBoolShowZoneConstantList">
+									</v-select>
+								</v-flex>
+							</v-layout>
+						</v-flex>
+						<!-- フリーワード 絞り込み --------------------------------- -->
+						<v-flex xs5>
+							<v-layout row wrap justify-start>
+								<v-flex xs12>
+									<v-text-field label="add filter word" v-model="dataFreeWord" filled outlined>
+									</v-text-field>
+								</v-flex>
+							</v-layout>
+						</v-flex>
+					</v-layout>
+				</v-flex>
+			</v-layout>
+			<!-- 定型文編集 コンポーネント--------------------------------- -->
+			<v-layout row wrap justify-center class="border-radius my-4" v-if="dataBoolShowZoneConstantList == true">
+				<v-flex xs10>
+					<v-layout row justify-center class="lighten-5 grey border-radius">
+						<v-flex xs10 class="text-center">
+							add template keyword
+							<v-textarea v-model="dataConstantListNew" outlined auto-grow
+								label="input fixed url list (separate by new line)">
+							</v-textarea>
+							<v-btn depressed color="info" class="border-radius mt-n4" @click="methodAddConstant">add</v-btn>
+						</v-flex>
+					</v-layout>
+				</v-flex>
+				<v-flex xs10>
+					<v-layout row wrap justify-center class="white border-radius  my-4">
+						<!-- 環境 削除 --------------------------------- -->
+						<v-flex xs11 v-for="(constant, index) in dataConstantList" :key="index">
+							<v-card class="border-radius urldiv" flat v-if="constant != ''">
+								<v-card-text>
+									<v-icon @click="methodRemoveConstant" :data-targetConstant="constant" left color="black">mdi-delete
+									</v-icon>
+									{{ constant }}
+								</v-card-text>
+							</v-card>
+						</v-flex>
+					</v-layout>
+				</v-flex>
+			</v-layout>
+			<!-- URL一覧 コンポーネント--------------------------------- -->
+			<v-layout row wrap justify-center class="border-radius " v-if="dataBoolShowZoneConstantList == false">
+				<v-flex xs12 class="text-center">
+					<v-btn depressed color="info" class="border-radius" @click="methodToggleDataBoolShowZoneAddUrl">
+						{{this.dataTextButtonAddUrl}}
+					</v-btn>
+				</v-flex>
+				<v-flex xs10 class="text-center mt-1" v-if="dataBoolShowZoneAddUrl">
+					<v-layout row justify-center class="lighten-5 grey border-radius">
+						<v-flex xs10>
+							add url textarea
+							<v-textarea v-model="dataStoreUrlListNew" outlined auto-grow label="input url (separate by new line)">
+							</v-textarea>
+							<v-btn depressed color="info" class="border-radius mt-n8" @click="methodAddUrl">add url
+							</v-btn>
+						</v-flex>
+					</v-layout>
+				</v-flex>
+			</v-layout>
+			<v-layout row wrap justify-center class="border-radius mt-5 " v-if="dataBoolShowZoneConstantList == false">
+				<v-flex xs10 class="is-hide " :data-url="storeUrl" v-for="(storeUrl, index) in dataStoreUrlList" :key="index"
+					:class="methodFilterCondition(storeUrl) ">
+					<v-card class="border-radius urldiv" flat v-if="storeUrl != ''">
+						<v-card-title :data-targetid="'index_' + index" :data-targeturl="storeUrl" @mouseover="methodOnMouseOver"
+							@mouseout="methodOnMouseOut">
+							<v-icon @click="methodRemoveUrl" left :data-targeturl="storeUrl" color="black">mdi-delete
+							</v-icon>
+							<a :href="storeUrl" target="_blank" class="body-2">{{ storeUrl }}</a>
+							<v-spacer></v-spacer>
+							<v-icon @click="methodDownloadQRCode" :data-targetid="'index_' + index" :data-filename="storeUrl"
+								color="orange">mdi-download</v-icon>
+						</v-card-title>
+						<div :id="'index_' + index" class="qr is-hide"></div>
+					</v-card>
+					<p v-if="index === dataStoreUrlList.length - 1" id="elementListEnd"></p>
+				</v-flex>
+			</v-layout>
+		</v-container>
+	</v-app>
+	<script src="//cdn.jsdelivr.net/npm/vue@2.6.10"></script>
+	<!-- <script src="//cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script> -->
+	<script src="//cdn.jsdelivr.net/npm/vuetify@2.1.4/dist/vuetify.js"></script>
+	<script>
+		"use strict";
+		new Vue({
+			el: "#app",
+			vuetify: new Vuetify(),
+			data: {
+				dataBoolShowZoneAddUrl: false,
+				dataBoolShowZoneConstantList: false,
+				dataStoreUrlList: [],
+				dataStoreUrlListNew: "",
+				dataConstantList: [
+					'',
+				],
+				dataConstantListNew: "",
+				dataSelectConstant: "",
+				dataFreeWord: "",
+				dataQRCodeSize: 256,
+				dataQRPlotOffset: 6,
+				dataTextButtonAddUrl: "",
+				dataArrayButtonAddUrl: {
+					"false": "open add url area ",
+					"true": "close add url area ",
+				},
+			},
+			mounted() {
+				let temp_dataStoreUrlList = this.getLocalstorageDataStoreUrlList();
+				if (temp_dataStoreUrlList != "") {
+					this.setDataStoreUrlList(temp_dataStoreUrlList.split(","));
+				}
+				let temp_dataConstantList = this.getLocalstoragedataConstantList();
+				if (temp_dataConstantList != "") {
+					this.setdataConstantList(temp_dataConstantList.split(","));
+				}
+				this.setDataTextButtonAddUrl(this.getDataArrayButtonAddUrl(this.getDataBoolShowZoneAddUrl()));
+				// データリストがあれば作成
+				if (this.getDataStoreUrlList().length != 0) {
+					this.methodCreateQRCode();
+				}
+			},
+			methods: {
+				methodOnMouseOver: function (event) {
+					let scrollLeft = document.documentElement.scrollLeft;
+					let scrollTop = document.documentElement.scrollTop;
+					let currentX = scrollLeft + event.clientX;
+					let currentY = scrollTop + event.clientY;
+					let offsetOver = this.getDataQRPlotOffset(); // カーソルの下・右に出す
+					let offsetUndr = -1 * (this.getDataQRCodeSize() + this.getDataQRPlotOffset()); // カーソルの上・左に出す
+					let positionX = (scrollLeft + (window.innerWidth / 2) > currentX) ? offsetOver : offsetUndr;
+					let positionY = (scrollTop + (window.innerHeight / 2) > currentY) ? offsetOver : offsetUndr;
+					$("#QRElement").empty();
+					$("#QRElement").css("display", "block");
+					$("#QRElement").css("left", positionX + currentX);
+					$("#QRElement").css("top", positionY + currentY);
+					this.methodPlotQRCode(event.target.dataset.targeturl);
+				},
+				methodOnMouseOut: function (event) {
+					$("#QRElement").css("display", "none");
+				},
+				methodToggleDataBoolShowZoneAddUrl() {
+					this.setDataBoolShowZoneAddUrl(!this.getDataBoolShowZoneAddUrl());
+					this.setDataTextButtonAddUrl(this.getDataArrayButtonAddUrl(this.getDataBoolShowZoneAddUrl()));
+				},
+				methodToggledataBoolShowZoneConstantList() {
+					this.setdataBoolShowZoneConstantList(!this.getdataBoolShowZoneConstantList());
+				},
+				// 整形表現に一致すればクラスis-showを返却
+				methodFilterCondition: function (url) {
+					let dataSelectConstant = this.getdataSelectConstant();
+					let freeWordList = this.getDataFreeWord().split(" ");
+					if (this.getDataFreeWord() == "") {
+						if (url.indexOf(dataSelectConstant) != -1) {
+							return "is-show";
+						}
+					} else {
+						// 正規表現に組み合わせたい文字列
+						let strCombRegex = ".*" + dataSelectConstant + ".*";
+						freeWordList.forEach((value, index, array) => {
+							strCombRegex = strCombRegex + value + ".*";
+						});
+						// 正規表現オブジェクト ここでは正規表現も文字列で記載する
+						let regexp = new RegExp(strCombRegex, "g");
+						// 検索対象から正規表現にマッチするものを抽出して返す
+						let matchArr = url.match(regexp);
+						if (matchArr != null) {
+							return "is-show";
+						}
+					}
+				},
+				methodRemoveConstant: function (event) {
+					let targetConstant = event.target.dataset.targetConstant;
+					let dataConstantList = this.getdataConstantList();
+					let index = dataConstantList.findIndex((v) => v === targetConstant);
+					dataConstantList.splice(index, 1);
+					this.setdataConstantList(dataConstantList);
+				},
+				methodRemoveUrl: function (event) {
+					let targetUrl = event.target.dataset.targeturl;
+					let dataStoreUrlList = this.getDataStoreUrlList();
+					let index = dataStoreUrlList.findIndex((v) => v === targetUrl);
+					dataStoreUrlList.splice(index, 1);
+					this.setDataStoreUrlList(dataStoreUrlList);
+				},
+				methodAddUrl: function () {
+					$(".qr").empty();
+					let dataStoreUrlListNew = this.getDataStoreUrlListNew().split("\n");
+					let dataStoreUrlListOld = this.getDataStoreUrlList();
+					let dataStoreUrlListMrg = dataStoreUrlListOld.concat(dataStoreUrlListNew);
+					// 空配列を削除
+					let dataStoreUrlList = dataStoreUrlListMrg.filter(v => v);
+					// 一意化
+					let uniqueList = dataStoreUrlList.filter(function (element, index, array) {
+						return array.indexOf(element) === index;
+					})
+					this.setDataStoreUrlList(uniqueList);
+					// リスト追加直後にダウンロード可能にする
+					if (this.getDataStoreUrlList().length != 0) {
+						this.methodCreateQRCode();
+					}
+					this.setDataStoreUrlListNew("");
+				},
+				methodAddConstant: function () {
+					let dataConstantListNew = this.getdataConstantListNew().split("\n");
+					let dataConstantListOld = this.getdataConstantList();
+					let dataConstantListMrg = dataConstantListOld.concat(dataConstantListNew);
+					// 空配列を削除
+					let dataConstantList = dataConstantListMrg.filter(v => v);
+					dataConstantList.unshift("");
+					// 一意化
+					let uniqueList = dataConstantList.filter(function (element, index, array) {
+						return array.indexOf(element) === index;
+					})
+					this.setdataConstantList(uniqueList);
+					this.setdataConstantListNew("");
+				},
+				methodDownloadQRCode: function (event) {
+					event.stopPropagation();
+					let fileName = event.target.dataset.filename;
+					fileName = fileName.replace(/https:\/\//g, "").replace(/\//g, "／").replace(/\?/g, "？").replace(
+						/\</g, "＜").replace(/\>/g, "＞").replace(/\\/g, "￥").replace(/\:/g, "：").replace(/\*/g, "＊").replace(
+							/\|/g, "｜");
+					let data = $("#" + event.target.dataset.targetid).children("img").attr("src").split(",");
+					let a = document.createElement("A");
+					a.download = fileName + ".png";
+					a.href = "data:application/octet-stream;base64," + encodeURIComponent(data[1]);
+					document.body.appendChild(a);
+					a.click(); //自動ダウンロード
+					document.body.removeChild(a);
+				},
+				methodPlotQRCode: function (dataUrl) {
+					let qrcode = new QRCode("QRElement", {
+						text: dataUrl,
+						width: this.getDataQRCodeSize(),
+						height: this.getDataQRCodeSize(),
+						colorDark: "#000000",
+						colorLight: "#ffffff",
+						correctLevel: QRCode.CorrectLevel.L
+					});
+				},
+				methodCreateQRCode: function () {
+					let dataStoreUrlList = this.getDataStoreUrlList();
+					let qrCodeSize = this.getDataQRCodeSize();
+					let elementListEnd = setInterval(function () {
+						if (document.getElementById("elementListEnd") != null) {
+							clearInterval(elementListEnd);
+							dataStoreUrlList.forEach((value, index, array) => {
+								let qrCode = new QRCode("index_" + index, {
+									text: value,
+									width: qrCodeSize,
+									height: qrCodeSize,
+									colorDark: "#000000",
+									colorLight: "#ffffff",
+									correctLevel: QRCode.CorrectLevel.L
+								});
+							});
+						}
+					}, 100);
+				},
+				// ________________________________________________
+				// getters
+				getDataFreeWordList() {
+					return this.dataFreeWordList;
+				},
+				getDataAddFreeWord() {
+					return this.dataAddFreeWord;
+				},
+				getDataStoreUrlList() {
+					return this.dataStoreUrlList;
+				},
+				getDataStoreUrlListNew() {
+					return this.dataStoreUrlListNew;
+				},
+				getdataConstantList() {
+					return this.dataConstantList;
+				},
+				getdataConstantListNew() {
+					return this.dataConstantListNew;
+				},
+				getDataQRCodeSize() {
+					return this.dataQRCodeSize;
+				},
+				getDataQRPlotOffset() {
+					return this.dataQRPlotOffset;
+				},
+				getdataSelectConstant() {
+					return this.dataSelectConstant;
+				},
+				getdataSelectConstant() {
+					return this.dataSelectConstant;
+				},
+				getLocalstorageDataStoreUrlList() {
+					return localStorage.getItem("QRepository_dataStoreUrlList") || "";
+				},
+				getLocalstoragedataConstantList() {
+					return localStorage.getItem("QRepository_dataConstantList") || "";
+				},
+				getDataBoolShowZoneAddUrl() {
+					return this.dataBoolShowZoneAddUrl;
+				},
+				setDataTextButtonAddUrl() {
+					return this.dataTextButtonAddUrl;
+				},
+				getDataArrayButtonAddUrl(context) {
+					return this.dataArrayButtonAddUrl[context];
+				},
+				getdataBoolShowZoneConstantList() {
+					return this.dataBoolShowZoneConstantList;
+				},
+				getDataFreeWord() {
+					return this.dataFreeWord;
+				},
+				// ________________________________________________
+				// setters
+				setDataFreeWordList(context) {
+					this.dataFreeWordList = context;
+					localStorage.setItem("QRepository_dataFreeWordList", context);
+				},
+				setDataStoreUrlList(context) {
+					this.dataStoreUrlList = context;
+					localStorage.setItem("QRepository_dataStoreUrlList", context);
+				},
+				setdataConstantList(context) {
+					this.dataConstantList = context;
+					localStorage.setItem("QRepository_dataConstantList", context);
+				},
+				setdataConstantListNew(context) {
+					this.dataConstantListNew = context;
+				},
+				setDataStoreUrlListNew(context) {
+					this.dataStoreUrlListNew = context;
+				},
+				setDataTextButtonAddUrl(context) {
+					this.dataTextButtonAddUrl = context;
+				},
+				setDataBoolShowZoneAddUrl(context) {
+					this.dataBoolShowZoneAddUrl = context;
+				},
+				setdataBoolShowZoneConstantList(context) {
+					this.dataBoolShowZoneConstantList = context;
+				},
+			},
+		})
+	</script>
+</body>
+<style>
+	.is-hide {
+		display: none;
+	}
+
+	.is-show {
+		display: block;
+	}
+
+	body,
+	div {
+		/* background-color: #00ff00; */
+		font-family: "Inconsolata", monospace;
+	}
+
+	.border-radius {
+		border-radius: 0.5em;
+	}
+
+	#QRElement {
+		z-index: 1000;
+		position: absolute;
+		top: 10px;
+		left: 10px;
+		display: none;
+		/* background-color: whitesmoke; */
+	}
+
+	.urldiv {
+		background-color: ghostwhite;
+	}
+
+	.urldiv:hover {
+		background-color: gainsboro;
+	}
+</style>
+
+</html>
